@@ -17,11 +17,9 @@ function onOpen() {
     .addToUi();
 
   if (configError) {
-    ss.toast(
-      `Configuration issue detected: ${configError.message}. Please fix values in the "Config" sheet.`,
-      CONFIG.toastTitle,
-      10
-    );
+    const warningMessage = `Configuration issue detected: ${configError.message}. Please fix values in the "Config" sheet.`;
+    ss.toast(warningMessage, CONFIG.toastTitle, 30);
+    writeStatusCellMessage_(ss, warningMessage, warningMessage);
   }
 }
 
@@ -118,11 +116,11 @@ function updateCalendarSheets() {
       ss.toast(
         `${changedNotifications.length} changed invoiced event(s) detected.`,
         CONFIG.toastTitle,
-        8
+        15
       );
     } else {
       setProgress_(ss, 'Done.');
-      ss.toast('Calendar import finished.', CONFIG.toastTitle, 5);
+      ss.toast('Calendar import finished.', CONFIG.toastTitle, 15);
     }
   } finally {
     restoreUiState_(ss, uiState);
