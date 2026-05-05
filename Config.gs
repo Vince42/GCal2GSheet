@@ -1,8 +1,21 @@
+const DEFAULT_HEADER = Object.freeze([
+  'Calendar',
+  'Event',
+  'Date',
+  'Start',
+  'End',
+  'Duration',
+  'Customer',
+  'Project',
+  'InvoiceNumber',
+  'InvoiceDate',
+]);
+
 const DEFAULT_CONFIG = Object.freeze({
   sheetName: 'Calendar',
   stateSheetName: '_calendar_state',
   tableName: 'Calendar',
-  statusCell: 'L1',
+  statusCell: buildDefaultStatusCell_(DEFAULT_HEADER),
 
   // Lower bound for managed imports: yyyy-mm-dd
   importStartDate: '2024-01-01',
@@ -10,18 +23,7 @@ const DEFAULT_CONFIG = Object.freeze({
   calendarNames: ['Event', 'dedc', 'EEC', 'CTG'],
   defaultCalendarName: 'Event',
 
-  header: [
-    'Calendar',
-    'Event',
-    'Date',
-    'Start',
-    'End',
-    'Duration',
-    'Customer',
-    'Project',
-    'InvoiceNumber',
-    'InvoiceDate',
-  ],
+  header: DEFAULT_HEADER.slice(),
 
   stateHeader: ['EventKey', 'RowKind'],
 
@@ -55,6 +57,7 @@ const CONFIG_SHEET_SPEC = Object.freeze({
   keys: {
     json: 'ConfigJson',
     lastValidJson: 'LastValidConfigJson',
+    statusCell: 'StatusCell',
     importStartDate: 'ImportStartDate',
     calendarNames: 'CalendarNames',
     defaultCalendarName: 'DefaultCalendarName',
@@ -87,6 +90,7 @@ function readConfigStateFromSheet_() {
   );
   const calendarNamesOverride = toText_(refs.valuesByKey[CONFIG_SHEET_SPEC.keys.calendarNames]).trim();
   const defaultCalendarNameOverride = toText_(refs.valuesByKey[CONFIG_SHEET_SPEC.keys.defaultCalendarName]).trim();
+  const statusCellOverride = toText_(readConfigSettingValue_(refs.sheet, CONFIG_SHEET_SPEC.keys.statusCell)).trim();
 
   let parsedConfig;
   let validationMessage;
@@ -115,6 +119,9 @@ function readConfigStateFromSheet_() {
   }
   if (defaultCalendarNameOverride) {
     parsedConfig.defaultCalendarName = defaultCalendarNameOverride;
+  }
+  if (statusCellOverride && statusCellOverride !== 'n/a') {
+    parsedConfig.statusCell = statusCellOverride;
   }
 
   const merged = mergeConfigWithDefaults_(parsedConfig || {});
@@ -154,6 +161,12 @@ function writeConfigToSheet_(config) {
       targetRange: refs.cellsByKey[CONFIG_SHEET_SPEC.keys.lastValidJson].getA1Notation(),
     },
     {
+      key: 'statusCell',
+      value: config.statusCell || '',
+      sourceRange: refs.cellsByKey[CONFIG_SHEET_SPEC.keys.statusCell].getA1Notation(),
+      targetRange: refs.cellsByKey[CONFIG_SHEET_SPEC.keys.statusCell].getA1Notation(),
+    },
+    {
       key: 'importStartDate',
       value: config.importStartDate || '',
       sourceRange: refs.cellsByKey[CONFIG_SHEET_SPEC.keys.importStartDate].getA1Notation(),
@@ -175,6 +188,7 @@ function writeConfigToSheet_(config) {
 
   refs.cellsByKey[CONFIG_SHEET_SPEC.keys.json].setValue(jsonPayload);
   refs.cellsByKey[CONFIG_SHEET_SPEC.keys.lastValidJson].setValue(jsonPayload);
+  refs.cellsByKey[CONFIG_SHEET_SPEC.keys.statusCell].setValue(config.statusCell || '');
   refs.cellsByKey[CONFIG_SHEET_SPEC.keys.importStartDate].setValue(config.importStartDate || '');
   refs.cellsByKey[CONFIG_SHEET_SPEC.keys.calendarNames].setValue((config.calendarNames || []).join(', '));
   refs.cellsByKey[CONFIG_SHEET_SPEC.keys.defaultCalendarName].setValue(config.defaultCalendarName || '');
@@ -193,6 +207,7 @@ function ensureConfigSheetAndRanges_() {
     [CONFIG_SHEET_SPEC.keyHeader, CONFIG_SHEET_SPEC.valueHeader],
     ['ConfigJson', ''],
     ['LastValidConfigJson', ''],
+    ['StatusCell', ''],
     ['ImportStartDate', ''],
     ['CalendarNames', ''],
     ['DefaultCalendarName', ''],
@@ -217,9 +232,10 @@ function ensureConfigSheetAndRanges_() {
     const calendarNamesValue = legacyValues[2][0];
     const defaultCalendarNameValue = legacyValues[3][0];
     const validityValue = legacyValues[4][0];
-    sheet.getRange(2, 2, 6, 1).setValues([
+    sheet.getRange(2, 2, 7, 1).setValues([
       [jsonValue],
       [jsonValue],
+      [DEFAULT_CONFIG.statusCell],
       [importStartDateValue],
       [calendarNamesValue],
       [defaultCalendarNameValue],
@@ -238,6 +254,7 @@ function ensureConfigSheetAndRanges_() {
     const defaultJson = JSON.stringify(DEFAULT_CONFIG, null, 2);
     cellsByKey[CONFIG_SHEET_SPEC.keys.json].setValue(defaultJson);
     cellsByKey[CONFIG_SHEET_SPEC.keys.lastValidJson].setValue(defaultJson);
+    cellsByKey[CONFIG_SHEET_SPEC.keys.statusCell].setValue(DEFAULT_CONFIG.statusCell);
     cellsByKey[CONFIG_SHEET_SPEC.keys.importStartDate].setValue(DEFAULT_CONFIG.importStartDate);
     cellsByKey[CONFIG_SHEET_SPEC.keys.calendarNames].setValue(DEFAULT_CONFIG.calendarNames.join(', '));
     cellsByKey[CONFIG_SHEET_SPEC.keys.defaultCalendarName].setValue(DEFAULT_CONFIG.defaultCalendarName);
@@ -250,7 +267,12 @@ function ensureConfigSheetAndRanges_() {
 function resolveManagedConfigSheet_(ss) {
   const sheet = ss.getSheetByName(CONFIG_SHEET_SPEC.legacyName);
   if (!sheet) {
-    throw new Error('Sheet "Config" is missing. Please create/restore it.');
+    const candidate = findSingleManagedConfigSheetCandidate_(ss);
+    if (!candidate) {
+      throw new Error('Sheet "Config" is missing. Please create/restore it.');
+    }
+    candidate.setName(CONFIG_SHEET_SPEC.legacyName);
+    return candidate;
   }
   if (!isManagedConfigSheetCandidate_(sheet)) {
     throw new Error(
@@ -258,6 +280,16 @@ function resolveManagedConfigSheet_(ss) {
     );
   }
   return sheet;
+}
+
+function findSingleManagedConfigSheetCandidate_(ss) {
+  const candidates = ss
+    .getSheets()
+    .filter((sheet) => isManagedConfigSheetCandidate_(sheet) && sheet.getName() !== CONFIG_SHEET_SPEC.legacyName);
+  if (candidates.length !== 1) {
+    return null;
+  }
+  return candidates[0];
 }
 
 function isManagedConfigSheetCandidate_(sheet) {
@@ -269,6 +301,7 @@ function hasManagedConfigLayout_(sheet) {
     'Key',
     'ConfigJson',
     'LastValidConfigJson',
+    'StatusCell',
     'ImportStartDate',
     'CalendarNames',
     'DefaultCalendarName',
@@ -316,6 +349,21 @@ function getConfigValuesByKey_(sheet) {
     valuesByKey[key] = cellsByKey[key].getValue();
   });
   return valuesByKey;
+}
+
+function readConfigSettingValue_(sheet, settingName) {
+  const rows = Math.max(sheet.getLastRow(), 1);
+  const keyValues = sheet.getRange(1, 1, rows, 1).getValues();
+  for (let i = 0; i < keyValues.length; i += 1) {
+    const key = toText_(keyValues[i][0]).trim();
+    if (!key) {
+      break;
+    }
+    if (key === settingName) {
+      return sheet.getRange(i + 1, 2).getValue();
+    }
+  }
+  return 'n/a';
 }
 
 
@@ -433,6 +481,7 @@ function validateConfig_(config) {
   assertString_(config.stateSheetName, 'stateSheetName');
   assertString_(config.tableName, 'tableName');
   assertString_(config.statusCell, 'statusCell');
+  assertA1CellReference_(config.statusCell, 'statusCell');
   assertString_(config.importStartDate, 'importStartDate');
 
   assertStrictIsoDate_(config.importStartDate, 'importStartDate');
@@ -490,6 +539,30 @@ function assertString_(value, fieldName) {
   if (typeof value !== 'string' || value.trim() === '') {
     throw new Error(`Invalid ${fieldName}.`);
   }
+}
+
+function assertA1CellReference_(value, fieldName) {
+  const normalized = String(value || '').trim();
+  if (!/^[A-Za-z]+[1-9][0-9]*$/.test(normalized)) {
+    throw new Error(`${fieldName} must be a valid single-cell A1 reference like "L1".`);
+  }
+}
+
+function buildDefaultStatusCell_(header) {
+  const headerWidth = Array.isArray(header) ? header.length : 0;
+  const oneBasedColumn = Math.max(1, headerWidth + 2);
+  return `${toA1ColumnLabel_(oneBasedColumn)}1`;
+}
+
+function toA1ColumnLabel_(oneBasedColumn) {
+  let n = Number(oneBasedColumn);
+  let label = '';
+  while (n > 0) {
+    const remainder = (n - 1) % 26;
+    label = String.fromCharCode(65 + remainder) + label;
+    n = Math.floor((n - 1) / 26);
+  }
+  return label || 'A';
 }
 
 function assertStrictIsoDate_(value, fieldName) {

@@ -45,5 +45,31 @@ function setProgress_(ss, message) {
   if (!ss) {
     return;
   }
-  ss.toast(String(message || ''), CONFIG.toastTitle, 3);
+  const text = String(message || '');
+  writeStatusCellMessage_(ss, text);
+  ss.toast(text, CONFIG.toastTitle, 15);
+}
+
+function writeStatusCellMessage_(ss, message, comment) {
+  if (!ss || !CONFIG || !CONFIG.sheetName || !CONFIG.statusCell) {
+    return;
+  }
+  if (!isA1CellReference_(CONFIG.statusCell)) {
+    return;
+  }
+  const sheet = ss.getSheetByName(CONFIG.sheetName);
+  if (!sheet) {
+    return;
+  }
+  const cell = sheet.getRange(CONFIG.statusCell);
+  cell.setValue(String(message || ''));
+  if (comment) {
+    cell.setComment(String(comment));
+    return;
+  }
+  cell.setComment('');
+}
+
+function isA1CellReference_(value) {
+  return /^[A-Za-z]+[1-9][0-9]*$/.test(String(value || '').trim());
 }
