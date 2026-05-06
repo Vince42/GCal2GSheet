@@ -1,8 +1,21 @@
+const DEFAULT_HEADER = Object.freeze([
+  'Calendar',
+  'Event',
+  'Date',
+  'Start',
+  'End',
+  'Duration',
+  'Customer',
+  'Project',
+  'InvoiceNumber',
+  'InvoiceDate',
+]);
+
 const DEFAULT_CONFIG = Object.freeze({
   sheetName: 'Calendar',
   stateSheetName: '_calendar_state',
   tableName: 'Calendar',
-  statusCell: 'L1',
+  statusCell: buildDefaultStatusCell_(DEFAULT_HEADER),
 
   // Lower bound for managed imports: yyyy-mm-dd
   importStartDate: '2024-01-01',
@@ -10,18 +23,7 @@ const DEFAULT_CONFIG = Object.freeze({
   calendarNames: ['Event', 'dedc', 'EEC', 'CTG'],
   defaultCalendarName: 'Event',
 
-  header: [
-    'Calendar',
-    'Event',
-    'Date',
-    'Start',
-    'End',
-    'Duration',
-    'Customer',
-    'Project',
-    'InvoiceNumber',
-    'InvoiceDate',
-  ],
+  header: DEFAULT_HEADER.slice(),
 
   stateHeader: ['EventKey', 'RowKind'],
 
@@ -123,6 +125,7 @@ function readConfigStateFromSheet_() {
   }
 
   const merged = mergeConfigWithDefaults_(parsedConfig || {});
+  merged.statusCell = sanitizeStatusCell_(merged.statusCell, merged.header);
   if (!validationMessage) {
     try {
       validateConfig_(merged);
@@ -144,7 +147,10 @@ function readConfigStateFromSheet_() {
 
 function writeConfigToSheet_(config) {
   const refs = ensureConfigSheetAndRanges_();
-  const jsonPayload = JSON.stringify(config, null, 2);
+  const jsonConfig = cloneConfig_(config);
+  jsonConfig.StatusCell = config.statusCell || '';
+  delete jsonConfig.statusCell;
+  const jsonPayload = JSON.stringify(jsonConfig, null, 2);
   const detailRows = [
     {
       key: 'json',
@@ -305,8 +311,10 @@ function hasManagedConfigLayout_(sheet) {
     'DefaultCalendarName',
     'Validity',
   ];
-  const values = sheet.getRange(1, 1, expectedKeys.length, 1).getValues();
-  return expectedKeys.every((key, index) => toText_(values[index][0]) === key);
+  return compatibleLayouts.some((layout) => {
+    const values = sheet.getRange(1, 1, layout.length, 1).getValues();
+    return layout.every((key, index) => toText_(values[index][0]) === key);
+  });
 }
 
 function hasLegacyManagedConfigLayout_(sheet) {
