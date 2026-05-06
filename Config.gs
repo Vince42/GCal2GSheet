@@ -281,16 +281,13 @@ function resolveManagedConfigSheet_(ss) {
   if (!sheet) {
     const candidate = findSingleManagedConfigSheetCandidate_(ss);
     if (!candidate) {
-      throw new Error('Sheet "Config" is missing. Please create/restore it.');
+      throw new Error('Sheet "Config" was not found. Expected: a worksheet named exactly "Config". Solution: create a sheet named "Config" (or rename the managed config sheet to "Config") and keep your settings in column B.');
     }
     candidate.setName(CONFIG_SHEET_SPEC.legacyName);
     return candidate;
   }
-  if (!isManagedConfigSheetCandidate_(sheet)) {
-    throw new Error(
-      'Sheet "Config" exists but is not managed by this script. Rename your existing sheet and create/restore the managed Config layout.'
-    );
-  }
+  // Accept the agreed worksheet name "Config" as the source of truth.
+  // The layout is normalized by ensureConfigSheetAndRanges_().
   return sheet;
 }
 
@@ -360,7 +357,7 @@ function getConfigCellsByKey_(sheet) {
       }
     }
     if (!cellsByKey[key]) {
-      throw new Error(`Missing config key "${key}" in column A of Config sheet.`);
+      throw new Error(`Config sheet issue: missing key "${key}" in column A. Expected: column A contains the required keys (Key, ConfigJson, LastValidConfigJson, StatusCell, ImportStartDate, CalendarNames, DefaultCalendarName, Validity). Solution: restore the key labels in column A (rows 1-8).`);
     }
   });
   return cellsByKey;
@@ -513,7 +510,7 @@ function validateConfig_(config) {
   assertStringArray_(config.calendarNames, 'calendarNames');
   assertString_(config.defaultCalendarName, 'defaultCalendarName');
   if (!config.calendarNames.includes(config.defaultCalendarName)) {
-    throw new Error('defaultCalendarName must exist in calendarNames.');
+    throw new Error('Invalid config: defaultCalendarName is not part of calendarNames. Expected: defaultCalendarName exactly matches one of the comma-separated CalendarNames entries. Solution: either add the default calendar to CalendarNames or change DefaultCalendarName.');
   }
 
   assertStringArrayWithLength_(
