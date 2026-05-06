@@ -440,3 +440,35 @@ You cannot guarantee "always" in OAuth systems (tokens can be revoked/expired, a
 5. Keep the Apps Script API enabled for that Google Cloud project/account.
 
 This workflow now performs explicit auth/script-access checks before push and prints remediation guidance when permission errors are detected.
+
+---
+
+## Live testing on a real Google Sheet
+
+Yes — you can test this project against a real Google Sheet using a dedicated test spreadsheet and Apps Script project.
+
+### Security-first setup
+
+- Use a **separate test Google account** or restricted test workspace where possible.
+- Never commit `.clasp.json` or `.clasprc.json` (already gitignored).
+- Keep OAuth/session credentials in your local environment only.
+- Do not run live tests against production invoice sheets.
+
+### Fast runtime verification
+
+This repository includes a live check script:
+
+- `bash scripts/live-sheet-check.sh`
+
+What it does:
+
+1. verifies `clasp` is installed
+2. verifies `.clasp.json` exists locally
+3. executes remote `onOpen()` via Apps Script Execution API path (`clasp run onOpen`)
+4. optionally executes `updateCalendarSheets()` when you explicitly allow write testing
+
+Write test opt-in:
+
+- `RUN_UPDATE_CALENDAR_SHEETS=1 bash scripts/live-sheet-check.sh`
+
+This gives you an actual runtime check in Google’s environment (not only static grep-based checks) while keeping credentials out of the repo.
