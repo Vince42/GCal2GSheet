@@ -11,15 +11,39 @@ function onOpen() {
     logStorageDebug_('onOpen.finish', new Date().toISOString());
   }
 
-  SpreadsheetApp.getUi()
-    .createMenu(CONFIG.menu.title)
-    .addItem(CONFIG.menu.item, 'updateCalendarSheets')
-    .addToUi();
+  const ui = SpreadsheetApp.getUi();
+  ensureMenuVisible_(ui);
 
   if (configError) {
     const warningMessage = `Configuration issue detected: ${configError.message}. Please fix values in the "Config" sheet.`;
-    ss.toast(warningMessage, CONFIG.toastTitle, 30);
-    writeStatusCellMessage_(ss, warningMessage, warningMessage);
+    showToastMessage_(ss, warningMessage, { severity: 'warning' });
+  }
+}
+
+function ensureMenuVisible_(ui) {
+  if (!ui) {
+    return;
+  }
+
+  const fallbackTitle = DEFAULT_CONFIG.menu.title;
+  const fallbackItem = DEFAULT_CONFIG.menu.item;
+  const fallbackFunction = 'updateCalendarSheets';
+
+  try {
+    const menuTitle =
+      CONFIG && CONFIG.menu && typeof CONFIG.menu.title === 'string' && CONFIG.menu.title.trim()
+        ? CONFIG.menu.title
+        : fallbackTitle;
+    const menuItem =
+      CONFIG && CONFIG.menu && typeof CONFIG.menu.item === 'string' && CONFIG.menu.item.trim()
+        ? CONFIG.menu.item
+        : fallbackItem;
+
+    ui.createMenu(menuTitle).addItem(menuItem, fallbackFunction).addToUi();
+  } catch (error) {
+    // Quality gate: never fail menu rendering because of config issues.
+    ui.createMenu(fallbackTitle).addItem(fallbackItem, fallbackFunction).addToUi();
+    logStorageDebug_('menu.fallback', String(error));
   }
 }
 
@@ -113,14 +137,12 @@ function updateCalendarSheets() {
         buildChangedRowsMessage_(changedNotifications),
         SpreadsheetApp.getUi().ButtonSet.OK
       );
-      ss.toast(
-        `${changedNotifications.length} changed invoiced event(s) detected.`,
-        CONFIG.toastTitle,
-        15
-      );
+      showToastMessage_(ss, `${changedNotifications.length} changed invoiced event(s) detected.`, {
+        severity: 'warning',
+      });
     } else {
       setProgress_(ss, 'Done.');
-      ss.toast('Calendar import finished.', CONFIG.toastTitle, 15);
+      showToastMessage_(ss, 'Calendar import finished.', { severity: 'info' });
     }
   } finally {
     restoreUiState_(ss, uiState);
