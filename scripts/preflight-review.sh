@@ -28,4 +28,7 @@ if ! rg -n "Mandatory release gates|Scope gate|Security gate" agents.md >/dev/nu
   exit 1
 fi
 
+echo "[preflight] running static smoke tests..."
+bash scripts/smoke-test.sh
+
 echo "[preflight] PASS"
