@@ -15,7 +15,7 @@ function onOpen() {
   ensureMenuVisible_(ui);
 
   if (configError) {
-    const warningMessage = `Configuration issue detected: ${configError.message}. Please fix values in the "Config" sheet.`;
+    const warningMessage = `Configuration issue detected: ${configError.message} Check the "Validity" row in the "Config" sheet for the exact validation result.`;
     showToastMessage_(ss, warningMessage, { severity: 'warning' });
   }
 }
