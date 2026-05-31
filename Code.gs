@@ -6,6 +6,7 @@ function onOpen() {
     refreshConfig_();
   } catch (error) {
     configError = error;
+    writeValidityMessage_(error && error.message ? error.message : String(error));
     logStorageDebug_('config.error', String(error));
   } finally {
     logStorageDebug_('onOpen.finish', new Date().toISOString());

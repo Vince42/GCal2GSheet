@@ -206,6 +206,16 @@ function restoreKnownConfigValuesAfterLayoutRewrite_(sheet, legacyValuesByKey) {
   }
 }
 
+function readConfigSettingCell_(sheet, settingName) {
+  const values = sheet.getRange(1, 1, Math.max(sheet.getLastRow(), 1), 1).getValues();
+  for (let i = 0; i < values.length; i += 1) {
+    if (toText_(values[i][0]).trim() === settingName) {
+      return sheet.getRange(i + 1, 2);
+    }
+  }
+  return null;
+}
+
 function ensureSchemaRegistryCellInitialized_(schemaRegistryCell) {
   const defaultSchemaPayload = JSON.stringify(buildDefaultSchemaRegistry_(), null, 2);
   const currentValue = toText_(schemaRegistryCell.getValue()).trim();
@@ -671,11 +681,11 @@ function logStorageDebug_(phase, message) {
   const line = `${new Date().toISOString()} [storage-debug] ${phase}: ${message}`;
   console.log(line);
   Logger.log(line);
-  appendStorageDebugToSheet_(line);
+  appendStorageDebugToSheet_(phase, message, line);
 }
 
 
-function appendStorageDebugToSheet_(line) {
+function appendStorageDebugToSheet_(phase, message, line) {
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const sheet = ensureLogSheet_(ss);
@@ -687,11 +697,27 @@ function appendStorageDebugToSheet_(line) {
       sheet.getRange(startRow + 1, 1, maxLines - 1, 5).moveTo(sheet.getRange(startRow, 1, maxLines - 1, 5));
       nextRow = startRow + maxLines - 1;
     }
-    sheet.getRange(nextRow, 1, 1, 5).setValues([[timestamp, 'DEBUG', 'storage', line, '']]);
+    sheet.getRange(nextRow, 1, 1, 5).setValues([[timestamp, 'DEBUG', phase, String(message), line]]);
   } catch (error) {
     const fallback = `[storage-debug] failed to persist debug line: ${error}`;
     console.log(fallback);
     Logger.log(fallback);
+  }
+}
+
+function writeValidityMessage_(message) {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const sheet = ss && ss.getSheetByName(CONFIG_SHEET_SPEC.legacyName);
+    if (!sheet) {
+      return;
+    }
+    const validityCell = readConfigSettingCell_(sheet, CONFIG_SHEET_SPEC.keys.validity);
+    if (validityCell) {
+      validityCell.setValue(String(message || 'Invalid configuration.'));
+    }
+  } catch (error) {
+    Logger.log(`failed to write Validity message: ${error}`);
   }
 }
 
