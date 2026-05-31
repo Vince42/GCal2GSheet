@@ -5,6 +5,15 @@ This repository contains a modular Google Apps Script solution for importing Goo
 The code is intentionally split by responsibility.  
 Any automated coding agent must preserve that separation.
 
+
+## Engineering Principle
+
+The agent must prove conformance before implementation, not explain correctness afterward.
+
+Before modifying code or behavior, the agent must identify affected ADRs, affected invariants, acceptance tests, regression risks, and the implementation plan. Implementation begins only after that conformance analysis is complete.
+
+Documentation-only changes may use a reduced analysis that identifies affected documents, relevant ADRs, and documentation validation checks before editing.
+
 ## Global working rules
 
 - Keep the current modular structure.
@@ -16,7 +25,7 @@ Any automated coding agent must preserve that separation.
 - Do not remove the Google Sheets native table object unless explicitly requested.
 - Preserve the main callable function `updateCalendarSheets()`.
 - Preserve menu creation in `onOpen()`.
-- `onOpen()` must always add the custom menu, even when configuration is invalid, so users retain recovery access to the configuration dialog.
+- `onOpen()` must always add the custom menu, even when configuration is invalid, so users retain access to the recovery/reset entry point.
 - Keep bulk sheet writes preferred over row-by-row writes.
 - Treat correctness as more important than clever optimization.
 - Avoid speculative fixes. Trace the logic path first.
@@ -161,7 +170,7 @@ No agent may commit unless every gate below is explicitly checked in the PR note
 
 2. **Recovery gate**
    - `onOpen()` always creates menu even if config is invalid
-   - configuration dialog remains reachable for in-sheet recovery
+   - recovery/reset remains reachable for in-sheet recovery
 
 3. **Data safety gate**
    - invalid config handling does not silently reset unrelated fields to defaults

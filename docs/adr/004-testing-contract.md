@@ -16,6 +16,8 @@ Future changes MUST be tested against the applicable architectural invariants, w
 
 Tests SHOULD be layered: pure configuration validation, sheet-layout migration, recovery behavior, import-domain invariants, and live smoke checks when local scenario tests pass. A pull request MUST include evidence for every layer it can affect.
 
+`docs/test-matrix.md` is the authoritative coverage map for the supported state families and minimum change-to-test mapping. Future test suites MAY implement the matrix with any harness that preserves the required behavioral assertions.
+
 Tests MUST verify negative and recovery paths, not only happy paths. Configuration, recovery, and logging changes MUST prove that invalid configuration, invalid schema metadata, missing sheets, and logging failures behave deterministically.
 
 Release gates MUST match the actual architecture. They MUST require recovery through the current menu/reset path rather than a removed or hypothetical UI.
