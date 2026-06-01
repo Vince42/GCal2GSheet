@@ -21,4 +21,46 @@ rg -n "function ensureLogSheet_\(" Config.gs >/dev/null
 rg -n "Timestamp.*Level.*Component.*Event.*Message" Config.gs >/dev/null
 rg -n "setFontFamily\('Courier New'\)" Config.gs >/dev/null
 
+# Static smoke test for generic default config and self-healing full imports.
+rg -n "calendarNames: \['Calendar'\]" Config.gs >/dev/null
+rg -n "defaultCalendarName: 'Calendar'" Config.gs >/dev/null
+rg -n "invoicingSheetName: 'Invoicing'" Config.gs >/dev/null
+rg -n "'Status'" Config.gs >/dev/null
+rg -n "nonBillableSheetName: 'Non-Billable'" Config.gs >/dev/null
+rg -n "nonBillableTableName: 'NonBillable'" Config.gs >/dev/null
+rg -n "function assertValidTableName_" Config.gs >/dev/null
+rg -n "ensureManagedWorkbookStructure_" "Table Service.gs" >/dev/null
+rg -n "assertSheetHasExpectedColumns_" "Table Service.gs" >/dev/null
+rg -n "isSheetBlankForManagedHeader_" "Table Service.gs" >/dev/null
+rg -n "allowOverwrite: false" "Table Service.gs" >/dev/null
+rg -n "ensureNonBillableSheet_" "Table Service.gs" >/dev/null
+rg -n "migrateCalendarInvoicesToInvoicing_" "Invoicing Store.gs" >/dev/null
+rg -n "repairInvoicingStateFromImportedEvents_" "Invoicing Store.gs" >/dev/null
+rg -n "readNonBillableState_" "Non Billable Store.gs" >/dev/null
+rg -n "applyRegisterStatusesToImportedEvents_" "Non Billable Store.gs" >/dev/null
+rg -n "buildStatusFormula_" "Sheet Writer.gs" >/dev/null
+rg -n "Filter for" Code.gs >/dev/null
+rg -n "Mark as" Code.gs >/dev/null
+rg -n "markSelectedCalendarRowsAsInvoiced" "Status Actions.gs" >/dev/null
+rg -n "collectSelectedCalendarRows_" "Status Actions.gs" >/dev/null
+rg -n "getActiveRangeList" "Status Actions.gs" >/dev/null
+rg -n "showMarkProgress_" "Status Actions.gs" >/dev/null
+rg -n "Marking selected Calendar rows" "Status Actions.gs" >/dev/null
+rg -n "reportMarkProgress_" "Status Actions.gs" >/dev/null
+if rg -n "Changed|changed follow-up|registered event update" "Sheet Writer.gs" "Rebuild Engine.gs" Code.gs README.md >/dev/null; then
+  echo "smoke-test: FAIL: changed follow-up workflow should not be present."
+  exit 1
+fi
+rg -n "Performing full import for self-healing reconciliation" Code.gs >/dev/null
+if rg -n "fetchIncrementalChanges_\(ss, calendars, timeZone\)" Code.gs >/dev/null; then
+  echo "smoke-test: FAIL: updateCalendarSheets should not use incremental fetches."
+  exit 1
+fi
+
+# Static smoke test for import-start and invoice-preservation safeguards.
+rg -n "ignoredBeforeImportStartCount" "State Store.gs" >/dev/null
+rg -n "excluded from this update and left unchanged" Code.gs >/dev/null
+rg -n "!row\.invoiceNumber" "Duplicate Engine.gs" >/dev/null
+rg -n "isExistingRowInScope_\(row\.values, scope\)" "Duplicate Engine.gs" >/dev/null
+
 echo "smoke-test: PASS"

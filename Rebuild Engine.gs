@@ -1,4 +1,4 @@
-function rebuildFromFullSnapshot_(existingState, currentByKey, changedNotifications, timeZone, scope) {
+function rebuildFromFullSnapshot_(existingState, currentByKey, scope) {
   const groups = [];
   const processedKeys = new Set();
 
@@ -6,7 +6,7 @@ function rebuildFromFullSnapshot_(existingState, currentByKey, changedNotificati
 
   sortedCurrent.forEach((currentEvent) => {
     const existingRows = existingState.rowsByEventKey.get(currentEvent.eventKey) || [];
-    const group = buildGroupForCurrentEvent_(existingRows, currentEvent, changedNotifications, timeZone);
+    const group = buildGroupForCurrentEvent_(existingRows, currentEvent);
     if (group) {
       groups.push(group);
     }
@@ -36,7 +36,7 @@ function rebuildFromFullSnapshot_(existingState, currentByKey, changedNotificati
   return flattenGroups_(groups);
 }
 
-function rebuildFromIncremental_(existingState, deltaByKey, changedNotifications, timeZone, scope) {
+function rebuildFromIncremental_(existingState, deltaByKey, scope) {
   const groupsByKey = new Map();
 
   existingState.rowsByEventKey.forEach((rows, eventKey) => {
@@ -64,7 +64,7 @@ function rebuildFromIncremental_(existingState, deltaByKey, changedNotifications
 
     let group = null;
     if (currentEvent) {
-      group = buildGroupForCurrentEvent_(existingRows, currentEvent, changedNotifications, timeZone);
+      group = buildGroupForCurrentEvent_(existingRows, currentEvent);
     } else {
       group = buildGroupForMissingCurrent_(existingRows);
     }
@@ -81,63 +81,14 @@ function rebuildFromIncremental_(existingState, deltaByKey, changedNotifications
   return flattenGroups_(groups);
 }
 
-function buildGroupForCurrentEvent_(existingRows, currentEvent, changedNotifications, timeZone) {
-  const invoicedRows = existingRows
-    .filter((row) => !!row.invoiceNumber)
-    .map((row) => cloneRowModel_(row));
-
-  const nonInvoicedRows = existingRows
-    .filter((row) => !row.invoiceNumber)
-    .map((row) => cloneRowModel_(row));
-
-  if (nonInvoicedRows.length > 0) {
-    const target = nonInvoicedRows[nonInvoicedRows.length - 1];
-    const updated = buildUpdatedRowFromImport_(target, currentEvent);
-    return buildGroupFromRows_(invoicedRows.concat([updated]));
-  }
-
-  if (invoicedRows.length > 0) {
-    const latest = invoicedRows[invoicedRows.length - 1];
-
-    if (latest.signature !== currentEvent.signature) {
-      const changedRow = buildNewRowFromImport_(
-        currentEvent,
-        latest.values[6] || '',
-        latest.values[7] || '',
-        '',
-        '',
-        CONFIG.rowKind.changedCopy
-      );
-
-      changedNotifications.push({
-        calendar: currentEvent.calendarName,
-        title: currentEvent.title,
-        date: formatDateCell_(currentEvent.date, timeZone, 'yyyy-MM-dd'),
-        start: formatDateCell_(currentEvent.start, timeZone, 'HH:mm'),
-        end: formatDateCell_(currentEvent.end, timeZone, 'HH:mm'),
-      });
-
-      return buildGroupFromRows_(invoicedRows.concat([changedRow]));
-    }
-
-    return buildGroupFromRows_(invoicedRows);
-  }
-
+function buildGroupForCurrentEvent_(existingRows, currentEvent) {
   return buildGroupFromRows_([
     buildNewRowFromImport_(currentEvent, '', '', '', '', CONFIG.rowKind.normal),
   ]);
 }
 
 function buildGroupForMissingCurrent_(existingRows) {
-  const invoicedRows = existingRows
-    .filter((row) => !!row.invoiceNumber)
-    .map((row) => cloneRowModel_(row));
-
-  if (invoicedRows.length === 0) {
-    return null;
-  }
-
-  return buildGroupFromRows_(invoicedRows);
+  return null;
 }
 
 function buildGroupFromRows_(rows) {
@@ -199,15 +150,11 @@ function compareImportedEvents_(a, b) {
 
 function buildUpdatedRowFromImport_(existingRow, currentEvent) {
   const values = currentEvent.values.slice();
-  values[6] = existingRow.values[6] || '';
-  values[7] = existingRow.values[7] || '';
-  values[8] = existingRow.values[8] || '';
-  values[9] = existingRow.values[9] || '';
 
   return {
     eventKey: currentEvent.eventKey,
     rowKind: CONFIG.rowKind.normal,
-    invoiceNumber: toText_(values[8]),
+    invoiceNumber: currentEvent.invoiceNumber || '',
     signature: currentEvent.signature,
     values,
   };
@@ -215,15 +162,19 @@ function buildUpdatedRowFromImport_(existingRow, currentEvent) {
 
 function buildNewRowFromImport_(currentEvent, customer, project, invoiceNumber, invoiceDate, rowKind) {
   const values = currentEvent.values.slice();
-  values[6] = customer || '';
-  values[7] = project || '';
-  values[8] = invoiceNumber || '';
-  values[9] = invoiceDate || '';
+  const rowInvoiceNumber = invoiceNumber || currentEvent.invoiceNumber || '';
+
+  if (values.length > 8) {
+    values[6] = customer || '';
+    values[7] = project || '';
+    values[8] = rowInvoiceNumber;
+    values[9] = invoiceDate || '';
+  }
 
   return {
     eventKey: currentEvent.eventKey,
     rowKind,
-    invoiceNumber: toText_(values[8]),
+    invoiceNumber: rowInvoiceNumber,
     signature: currentEvent.signature,
     values,
   };
