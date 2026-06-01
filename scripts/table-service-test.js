@@ -6,6 +6,19 @@ const assert = require('assert');
 const context = {
   console,
   Logger: { log() {} },
+  SpreadsheetApp: {
+    newFilterCriteria() {
+      return {
+        whenFormulaSatisfied(formula) {
+          this.formula = formula;
+          return this;
+        },
+        build() {
+          return { formula: this.formula };
+        },
+      };
+    },
+  },
 };
 vm.createContext(context);
 ['Helper.gs', 'Config.gs', 'Table Service.gs'].forEach((file) => {
@@ -65,5 +78,69 @@ assert.deepEqual(
   context.collectLegacyStateSheets_(spreadsheet, ['_custom_calendar_state', '_calendar_state', '_custom_calendar_state']).map((entry) => entry.name),
   ['_custom_calendar_state', '_calendar_state']
 );
+
+assert.deepEqual(context.parseImportStartDatePartsForFilter_('2024-01-01'), {
+  year: 2024,
+  month: 1,
+  day: 1,
+});
+assert.throws(() => context.parseImportStartDatePartsForFilter_('2024-02-31'), /not a real calendar date/);
+assert.equal(context.columnIndexToLetter_(1), 'A');
+assert.equal(context.columnIndexToLetter_(4), 'D');
+assert.equal(context.columnIndexToLetter_(28), 'AB');
+assert.deepEqual(
+  context.buildCalendarStartDateFilterCriteria_('2024-01-01', 4),
+  { formula: '=$D2>=DATE(2024,1,1)' }
+);
+
+function mockRange(row, column, numRows, numColumns, onCreateFilter) {
+  return {
+    getRow() { return row; },
+    getColumn() { return column; },
+    getNumRows() { return numRows; },
+    getNumColumns() { return numColumns; },
+    createFilter() { return onCreateFilter(this); },
+  };
+}
+
+function mockFilter(range, criteriaByColumn) {
+  return {
+    removed: false,
+    applied: [],
+    getRange() { return range; },
+    getColumnFilterCriteria(column) { return criteriaByColumn[column] || null; },
+    setColumnFilterCriteria(column, criteria) {
+      criteriaByColumn[column] = criteria;
+      this.applied.push({ column, criteria });
+    },
+    remove() { this.removed = true; },
+  };
+}
+
+let createdFilter;
+const resizedSheet = {
+  existingFilter: null,
+  getLastRow() { return 10; },
+  getFilter() { return this.existingFilter; },
+  getRange(row, column, numRows, numColumns) {
+    return mockRange(row, column, numRows, numColumns, (range) => {
+      createdFilter = mockFilter(range, {});
+      this.existingFilter = createdFilter;
+      return createdFilter;
+    });
+  },
+};
+const calendarHeader = context.mergeConfigWithDefaults_({}).header;
+const oldRange = mockRange(1, 1, 5, calendarHeader.length, () => null);
+const statusCriteria = { status: 'Open' };
+const oldFilter = mockFilter(oldRange, { 8: statusCriteria });
+resizedSheet.existingFilter = oldFilter;
+const ensuredFilter = context.ensureCalendarSheetFilter_(resizedSheet);
+assert.equal(oldFilter.removed, true);
+assert.strictEqual(ensuredFilter.getColumnFilterCriteria(8), statusCriteria);
+assert.equal(ensuredFilter.getRange().getNumRows(), 10);
+
+context.ensureCalendarStartDateFilter_(resizedSheet);
+assert.deepEqual(createdFilter.getColumnFilterCriteria(4), { formula: '=$D2>=DATE(2024,1,1)' });
 
 console.log('table-service-test: PASS');
