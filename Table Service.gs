@@ -90,6 +90,7 @@ function ensureManagedWorkbookStructure_(ss, spreadsheetId) {
   ensureSheetFormatting_(invoicingSheet);
   ensureSheetFormatting_(nonBillableSheet);
   ensureTable_(spreadsheetId, sheet);
+  ensureCalendarStartDateFilter_(sheet);
   ensureTable_(spreadsheetId, invoicingSheet, CONFIG.invoicingTableName, CONFIG.invoicingHeader);
   ensureTable_(spreadsheetId, nonBillableSheet, CONFIG.nonBillableTableName, CONFIG.nonBillableHeader);
   deleteLegacyStateSheets_(
@@ -265,6 +266,9 @@ function ensureTable_(spreadsheetId, sheet, tableName, header) {
 }
 
 function ensureTableRange_(spreadsheetId, sheet, tableName, header) {
+  if (!tableName && !header) {
+    ensureCalendarStartDateFilter_(sheet);
+  }
   const effectiveTableName = tableName || CONFIG.tableName;
   const effectiveHeader = header || CONFIG.header;
   assertManagedTableHasInlineIdColumn_(effectiveHeader);
@@ -319,6 +323,98 @@ function ensureTableRange_(spreadsheetId, sheet, tableName, header) {
     },
     spreadsheetId
   );
+}
+
+
+function ensureCalendarStartDateFilter_(sheet) {
+  const dateColumn = CONFIG.header.indexOf('Date') + 1;
+  if (dateColumn <= 0) {
+    throw new Error('Calendar Date column is not configured.');
+  }
+
+  const filter = ensureCalendarSheetFilter_(sheet);
+  const criteria = buildCalendarStartDateFilterCriteria_(CONFIG.importStartDate, dateColumn);
+  filter.setColumnFilterCriteria(dateColumn, criteria);
+}
+
+function ensureCalendarSheetFilter_(sheet) {
+  const rowCount = Math.max(sheet.getLastRow(), 1);
+  const columnCount = CONFIG.header.length;
+  const existingFilter = sheet.getFilter();
+  if (!existingFilter) {
+    return sheet.getRange(1, 1, rowCount, columnCount).createFilter();
+  }
+
+  const filterRange = existingFilter.getRange();
+  const hasExpectedRange =
+    filterRange.getRow() === 1 &&
+    filterRange.getColumn() === 1 &&
+    filterRange.getNumRows() === rowCount &&
+    filterRange.getNumColumns() === columnCount;
+  if (hasExpectedRange) {
+    return existingFilter;
+  }
+
+  const savedCriteria = [];
+  for (let column = 1; column <= columnCount; column += 1) {
+    savedCriteria[column] = existingFilter.getColumnFilterCriteria(column);
+  }
+  existingFilter.remove();
+
+  const filter = sheet.getRange(1, 1, rowCount, columnCount).createFilter();
+  savedCriteria.forEach((criteria, column) => {
+    if (criteria && column > 0) {
+      filter.setColumnFilterCriteria(column, criteria);
+    }
+  });
+  return filter;
+}
+
+function buildCalendarStartDateFilterCriteria_(importStartDate, dateColumn) {
+  const parts = parseImportStartDatePartsForFilter_(importStartDate);
+  const columnLetter = columnIndexToLetter_(dateColumn);
+  const formula = `=$${columnLetter}2>=DATE(${parts.year},${parts.month},${parts.day})`;
+  return SpreadsheetApp.newFilterCriteria().whenFormulaSatisfied(formula).build();
+}
+
+function parseImportStartDatePartsForFilter_(value) {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(toText_(value).trim());
+  if (!match) {
+    throw new Error(
+      `Invalid CONFIG.importStartDate: "${value}". Use ISO date format YYYY-MM-DD (example: 2024-01-01).`
+    );
+  }
+
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  const isRealDate =
+    date.getUTCFullYear() === year &&
+    date.getUTCMonth() === month - 1 &&
+    date.getUTCDate() === day;
+  if (!isRealDate) {
+    throw new Error(
+      `Invalid CONFIG.importStartDate: "${value}" is not a real calendar date. Use YYYY-MM-DD (example: 2024-01-01).`
+    );
+  }
+
+  return { year, month, day };
+}
+
+function columnIndexToLetter_(columnIndex) {
+  if (!Number.isInteger(columnIndex) || columnIndex < 1) {
+    throw new Error(`Invalid column index: ${columnIndex}.`);
+  }
+
+  let remaining = columnIndex;
+  let letters = '';
+  while (remaining > 0) {
+    const remainder = (remaining - 1) % 26;
+    letters = String.fromCharCode(65 + remainder) + letters;
+    remaining = Math.floor((remaining - 1) / 26);
+  }
+  return letters;
 }
 
 function getSpreadsheetModel_(spreadsheetId) {
