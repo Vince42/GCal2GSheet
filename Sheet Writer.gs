@@ -26,7 +26,7 @@ function writeVisibleBody_(sheet, rows) {
 }
 
 function buildStatusFormula_(rowNumber) {
-  return `=IF(COUNTIF('${CONFIG.invoicingStateSheetName}'!$A:$A,'${CONFIG.stateSheetName}'!$A${rowNumber})>0,"Invoiced",IF(COUNTIF('${CONFIG.nonBillableStateSheetName}'!$A:$A,'${CONFIG.stateSheetName}'!$A${rowNumber})>0,"Non-billable",IF('${CONFIG.stateSheetName}'!$B${rowNumber}="${CONFIG.rowKind.changedCopy}","Changed","Open")))`;
+  return `=IF('${CONFIG.stateSheetName}'!$B${rowNumber}="${CONFIG.rowKind.changedCopy}","Changed",IF(COUNTIF('${CONFIG.invoicingStateSheetName}'!$A:$A,'${CONFIG.stateSheetName}'!$A${rowNumber})>0,"Invoiced",IF(COUNTIF('${CONFIG.nonBillableStateSheetName}'!$A:$A,'${CONFIG.stateSheetName}'!$A${rowNumber})>0,"Non-billable","Open")))`;
 }
 
 function writeStateBody_(stateSheet, rows) {
@@ -83,17 +83,6 @@ function applyRowColors_(sheet, rows) {
 
   const colors = rows.map(() => new Array(CONFIG.header.length).fill(CONFIG.colors.normal));
   sheet.getRange(2, 1, rows.length, CONFIG.header.length).setFontColors(colors);
-}
-
-function clearRetiredCalendarInvoiceColumns_(sheet) {
-  const firstRetiredColumn = CONFIG.header.length + 1;
-  const retiredColumnCount = Math.max(CONFIG.invoicingHeader.length - CONFIG.header.length, 0);
-  if (retiredColumnCount === 0) {
-    return;
-  }
-
-  const rowCount = Math.max(sheet.getLastRow(), 1);
-  sheet.getRange(1, firstRetiredColumn, rowCount, retiredColumnCount).clearContent();
 }
 
 function clearRetiredCalendarInvoiceColumns_(sheet) {

@@ -37,6 +37,7 @@ rg -n "repairInvoicingStateFromImportedEvents_" "Invoicing Store.gs" >/dev/null
 rg -n "readNonBillableState_" "Non Billable Store.gs" >/dev/null
 rg -n "applyRegisterStatusesToImportedEvents_" "Non Billable Store.gs" >/dev/null
 rg -n "buildStatusFormula_" "Sheet Writer.gs" >/dev/null
+rg -n "rowKind\.changedCopy.*Changed.*COUNTIF" "Sheet Writer.gs" >/dev/null
 rg -n "Filter for" Code.gs >/dev/null
 rg -n "Mark as" Code.gs >/dev/null
 rg -n "markVisibleCalendarRowsAsInvoiced" "Status Actions.gs" >/dev/null
