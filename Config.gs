@@ -5,27 +5,57 @@ const DEFAULT_HEADER = Object.freeze([
   'Start',
   'End',
   'Duration',
+  'Status',
+]);
+
+const DEFAULT_INVOICING_HEADER = Object.freeze([
+  'Calendar',
+  'Event',
+  'Date',
+  'Start',
+  'End',
+  'Duration',
   'Customer',
   'Project',
   'InvoiceNumber',
   'InvoiceDate',
 ]);
 
+const DEFAULT_NON_BILLABLE_HEADER = Object.freeze([
+  'Calendar',
+  'Event',
+  'Date',
+  'Start',
+  'End',
+  'Duration',
+  'Reason',
+]);
+
 const DEFAULT_CONFIG = Object.freeze({
   sheetName: 'Calendar',
   stateSheetName: '_calendar_state',
   tableName: 'Calendar',
+  invoicingSheetName: 'Invoicing',
+  invoicingStateSheetName: '_invoicing_state',
+  invoicingTableName: 'Invoicing',
+  nonBillableSheetName: 'Non-Billable',
+  nonBillableStateSheetName: '_non_billable_state',
+  nonBillableTableName: 'Non-Billable',
   statusCell: buildDefaultStatusCell_(DEFAULT_HEADER),
 
   // Lower bound for managed imports: yyyy-mm-dd
   importStartDate: '2024-01-01',
 
-  calendarNames: ['Event', 'dedc', 'EEC', 'CTG'],
-  defaultCalendarName: 'Event',
+  calendarNames: ['Calendar'],
+  defaultCalendarName: 'Calendar',
 
   header: DEFAULT_HEADER.slice(),
+  invoicingHeader: DEFAULT_INVOICING_HEADER.slice(),
+  nonBillableHeader: DEFAULT_NON_BILLABLE_HEADER.slice(),
 
   stateHeader: ['EventKey', 'RowKind'],
+  invoicingStateHeader: ['EventKey'],
+  nonBillableStateHeader: ['EventKey'],
 
   rowKind: {
     normal: 'NORMAL',
@@ -40,6 +70,7 @@ const DEFAULT_CONFIG = Object.freeze({
     normal: '#000000',
     invoiced: '#7A1F1F',
     changed: '#1B5E20',
+    nonBillable: '#666666',
   },
 
   menu: {
@@ -423,7 +454,38 @@ function clearSyncTokenProperties_(props, prefixes) {
 }
 
 function mergeConfigWithDefaults_(overrideConfig) {
-  return mergeKnownShape_(DEFAULT_CONFIG, overrideConfig || {});
+  return mergeKnownShape_(DEFAULT_CONFIG, normalizeConfigOverrideForCurrentSchema_(overrideConfig || {}));
+}
+
+function normalizeConfigOverrideForCurrentSchema_(overrideConfig) {
+  const normalized = cloneConfig_(overrideConfig || {});
+
+  const previousStatusHeader = ['Calendar', 'Event', 'Date', 'Start', 'End', 'Duration', 'Invoiced'];
+  if (
+    Array.isArray(normalized.header)
+    && (
+      arraysEqual_(normalized.header, DEFAULT_INVOICING_HEADER)
+      || arraysEqual_(normalized.header, previousStatusHeader)
+    )
+  ) {
+    delete normalized.header;
+  }
+
+  return normalized;
+}
+
+function arraysEqual_(left, right) {
+  if (!Array.isArray(left) || !Array.isArray(right) || left.length !== right.length) {
+    return false;
+  }
+
+  for (let i = 0; i < left.length; i += 1) {
+    if (left[i] !== right[i]) {
+      return false;
+    }
+  }
+
+  return true;
 }
 
 function mergeKnownShape_(baseValue, overrideValue) {
@@ -475,7 +537,7 @@ function validateSchemaRegistry_(schemaRegistry) {
 
 function validateConfigStrictWithSchema_(normalizedConfig, rawConfig, schemaRegistry) {
   const raw = rawConfig || {};
-  const allowedKeys = new Set(schemaRegistry.allowedKeys);
+  const allowedKeys = new Set((schemaRegistry.allowedKeys || []).concat(Object.keys(DEFAULT_CONFIG)));
   Object.keys(raw).forEach((key) => {
     if (!allowedKeys.has(key)) {
       throw new Error(`Invalid config: unknown key "${key}" is not allowed.`);
@@ -488,6 +550,12 @@ function validateConfig_(config) {
   assertString_(config.sheetName, 'sheetName');
   assertString_(config.stateSheetName, 'stateSheetName');
   assertString_(config.tableName, 'tableName');
+  assertString_(config.invoicingSheetName, 'invoicingSheetName');
+  assertString_(config.invoicingStateSheetName, 'invoicingStateSheetName');
+  assertString_(config.invoicingTableName, 'invoicingTableName');
+  assertString_(config.nonBillableSheetName, 'nonBillableSheetName');
+  assertString_(config.nonBillableStateSheetName, 'nonBillableStateSheetName');
+  assertString_(config.nonBillableTableName, 'nonBillableTableName');
   assertString_(config.statusCell, 'StatusCell');
   assertA1CellReference_(config.statusCell, 'StatusCell');
   assertString_(config.importStartDate, 'importStartDate');
@@ -507,6 +575,22 @@ function validateConfig_(config) {
   );
   assertExactArrayMatch_(config.header, DEFAULT_CONFIG.header, 'header');
   assertStringArrayWithLength_(
+    config.invoicingHeader,
+    'invoicingHeader',
+    DEFAULT_CONFIG.invoicingHeader.length
+  );
+  assertExactArrayMatch_(config.invoicingHeader, DEFAULT_CONFIG.invoicingHeader, 'invoicingHeader');
+  assertStringArrayWithLength_(
+    config.nonBillableHeader,
+    'nonBillableHeader',
+    DEFAULT_CONFIG.nonBillableHeader.length
+  );
+  assertExactArrayMatch_(
+    config.nonBillableHeader,
+    DEFAULT_CONFIG.nonBillableHeader,
+    'nonBillableHeader'
+  );
+  assertStringArrayWithLength_(
     config.stateHeader,
     'stateHeader',
     DEFAULT_CONFIG.stateHeader.length
@@ -515,6 +599,26 @@ function validateConfig_(config) {
     config.stateHeader,
     DEFAULT_CONFIG.stateHeader,
     'stateHeader'
+  );
+  assertStringArrayWithLength_(
+    config.invoicingStateHeader,
+    'invoicingStateHeader',
+    DEFAULT_CONFIG.invoicingStateHeader.length
+  );
+  assertExactArrayMatch_(
+    config.invoicingStateHeader,
+    DEFAULT_CONFIG.invoicingStateHeader,
+    'invoicingStateHeader'
+  );
+  assertStringArrayWithLength_(
+    config.nonBillableStateHeader,
+    'nonBillableStateHeader',
+    DEFAULT_CONFIG.nonBillableStateHeader.length
+  );
+  assertExactArrayMatch_(
+    config.nonBillableStateHeader,
+    DEFAULT_CONFIG.nonBillableStateHeader,
+    'nonBillableStateHeader'
   );
 
   if (!config.rowKind || typeof config.rowKind !== 'object') {
@@ -533,6 +637,7 @@ function validateConfig_(config) {
   assertString_(config.colors.normal, 'colors.normal');
   assertString_(config.colors.invoiced, 'colors.invoiced');
   assertString_(config.colors.changed, 'colors.changed');
+  assertString_(config.colors.nonBillable, 'colors.nonBillable');
 
   if (!config.menu || typeof config.menu !== 'object') {
     throw new Error('Invalid menu object.');
