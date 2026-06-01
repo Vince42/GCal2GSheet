@@ -88,41 +88,47 @@ function markSelectedCalendarRows_(targetSheetName) {
       return;
     }
 
-    showMarkProgress_(ss, targetSheetName, 0, selectedRows.length);
+    showMarkProgress_(ss, targetSheetName, 0, selectedRows.length, 'Preparing selected rows');
 
     let markedCount = 0;
+    let removedCount = 0;
     if (targetSheetName === CONFIG.invoicingSheetName) {
       markedCount = appendCalendarRowsToInvoicing_(
         selectedRows,
         managedSheets.invoicingSheet,
         managedSheets.invoicingStateSheet,
-        (done, total) => showMarkProgress_(ss, targetSheetName, done, total)
+        (done, total) => showMarkProgress_(ss, targetSheetName, done, total, 'Preparing register rows')
       );
-      removeRegisterRowsByEventKeys_(
+      showMarkProgress_(ss, targetSheetName, selectedRows.length, selectedRows.length, 'Removing moved rows');
+      removedCount = removeRegisterRowsByEventKeys_(
         managedSheets.nonBillableSheet,
         managedSheets.nonBillableStateSheet,
         CONFIG.nonBillableHeader,
         CONFIG.nonBillableStateHeader,
-        selectedRows.map((row) => row.eventKey)
+        selectedRows.map((row) => row.eventKey),
+        (done, total) => showMarkProgress_(ss, targetSheetName, done, total, 'Removing moved rows')
       );
     } else if (targetSheetName === CONFIG.nonBillableSheetName) {
       markedCount = appendCalendarRowsToNonBillable_(
         selectedRows,
         managedSheets.nonBillableSheet,
         managedSheets.nonBillableStateSheet,
-        (done, total) => showMarkProgress_(ss, targetSheetName, done, total)
+        (done, total) => showMarkProgress_(ss, targetSheetName, done, total, 'Preparing register rows')
       );
-      removeRegisterRowsByEventKeys_(
+      showMarkProgress_(ss, targetSheetName, selectedRows.length, selectedRows.length, 'Removing moved rows');
+      removedCount = removeRegisterRowsByEventKeys_(
         managedSheets.invoicingSheet,
         managedSheets.invoicingStateSheet,
         CONFIG.invoicingHeader,
         CONFIG.invoicingStateHeader,
-        selectedRows.map((row) => row.eventKey)
+        selectedRows.map((row) => row.eventKey),
+        (done, total) => showMarkProgress_(ss, targetSheetName, done, total, 'Removing moved rows')
       );
     } else {
       throw new Error(`Unsupported mark target: ${targetSheetName}`);
     }
 
+    showMarkProgress_(ss, targetSheetName, selectedRows.length, selectedRows.length, 'Formatting registers');
     applyNumberFormats_(managedSheets.invoicingSheet, CONFIG.invoicingHeader);
     applyNumberFormats_(managedSheets.nonBillableSheet, CONFIG.nonBillableHeader);
     ensureTableRange_(spreadsheetId, managedSheets.invoicingSheet, CONFIG.invoicingTableName, CONFIG.invoicingHeader);
@@ -134,7 +140,8 @@ function markSelectedCalendarRows_(targetSheetName) {
     );
 
     SpreadsheetApp.flush();
-    showToastMessage_(ss, `${markedCount} selected Calendar row(s) marked as ${targetSheetName}.`, {
+    const movedMessage = removedCount > 0 ? ` ${removedCount} row(s) removed from the other register.` : '';
+    showToastMessage_(ss, `${markedCount} selected Calendar row(s) marked as ${targetSheetName}.${movedMessage}`, {
       severity: 'info',
     });
   } finally {
@@ -186,11 +193,23 @@ function collectSelectedCalendarRowNumbers_(ss, sheet, rowCount) {
     const startRow = Math.max(range.getRow(), firstDataRow);
     const endRow = Math.min(range.getLastRow(), lastDataRow);
     for (let row = startRow; row <= endRow; row += 1) {
-      rowNumbers.add(row);
+      if (isCalendarSheetRowVisible_(sheet, row)) {
+        rowNumbers.add(row);
+      }
     }
   });
 
   return Array.from(rowNumbers).sort((left, right) => left - right);
+}
+
+function isCalendarSheetRowVisible_(sheet, row) {
+  if (sheet.isRowHiddenByFilter(row)) {
+    return false;
+  }
+  if (sheet.isRowHiddenByUser(row)) {
+    return false;
+  }
+  return true;
 }
 
 function getSelectedCalendarRanges_(ss, sheet) {
@@ -207,11 +226,17 @@ function getSelectedCalendarRanges_(ss, sheet) {
   return [];
 }
 
-function showMarkProgress_(ss, targetSheetName, done, total) {
+function showMarkProgress_(ss, targetSheetName, done, total, stepLabel) {
+  const normalizedDone = Math.min(Math.max(Number(done) || 0, 0), Math.max(Number(total) || 0, 0));
+  const normalizedTotal = Math.max(Number(total) || 0, 0);
+  const percentage = normalizedTotal > 0 ? Math.floor((normalizedDone / normalizedTotal) * 100) : 0;
+  const stepText = stepLabel ? `${stepLabel} — ` : '';
+
   writeStatusCellMessage_(
     ss,
-    `Marking selected Calendar rows as ${targetSheetName}: ${done}/${total}`
+    `${stepText}Marking selected Calendar rows as ${targetSheetName}: ${normalizedDone}/${normalizedTotal} (${percentage}%)`
   );
+  SpreadsheetApp.flush();
 }
 
 function appendCalendarRowsToInvoicing_(calendarRows, invoicingSheet, invoicingStateSheet, progressCallback) {
@@ -278,7 +303,7 @@ function reportMarkProgress_(progressCallback, done, total) {
   }
 }
 
-function removeRegisterRowsByEventKeys_(sheet, stateSheet, header, stateHeader, eventKeys) {
+function removeRegisterRowsByEventKeys_(sheet, stateSheet, header, stateHeader, eventKeys, progressCallback) {
   const keys = new Set((eventKeys || []).filter((key) => key));
   if (keys.size === 0) {
     return 0;
@@ -294,13 +319,13 @@ function removeRegisterRowsByEventKeys_(sheet, stateSheet, header, stateHeader, 
 
   for (let index = stateValues.length - 1; index >= 0; index -= 1) {
     const eventKey = toText_(stateValues[index][0]);
-    if (!keys.has(eventKey)) {
-      continue;
+    if (keys.has(eventKey)) {
+      sheet.getRange(index + 2, 1, 1, header.length).deleteCells(SpreadsheetApp.Dimension.ROWS);
+      stateSheet.getRange(index + 2, 1, 1, stateHeader.length).deleteCells(SpreadsheetApp.Dimension.ROWS);
+      removedCount += 1;
     }
 
-    sheet.getRange(index + 2, 1, 1, header.length).deleteCells(SpreadsheetApp.Dimension.ROWS);
-    stateSheet.getRange(index + 2, 1, 1, stateHeader.length).deleteCells(SpreadsheetApp.Dimension.ROWS);
-    removedCount += 1;
+    reportMarkProgress_(progressCallback, stateValues.length - index, stateValues.length);
   }
 
   return removedCount;
