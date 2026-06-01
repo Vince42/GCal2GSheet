@@ -95,3 +95,14 @@ function clearRetiredCalendarInvoiceColumns_(sheet) {
   const rowCount = Math.max(sheet.getLastRow(), 1);
   sheet.getRange(1, firstRetiredColumn, rowCount, retiredColumnCount).clearContent();
 }
+
+function clearRetiredCalendarInvoiceColumns_(sheet) {
+  const firstRetiredColumn = CONFIG.header.length + 1;
+  const retiredColumnCount = Math.max(CONFIG.invoicingHeader.length - CONFIG.header.length, 0);
+  if (retiredColumnCount === 0) {
+    return;
+  }
+
+  const rowCount = Math.max(sheet.getLastRow(), 1);
+  sheet.getRange(1, firstRetiredColumn, rowCount, retiredColumnCount).clearContent();
+}
