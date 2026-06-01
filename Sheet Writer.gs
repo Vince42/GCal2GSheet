@@ -72,11 +72,20 @@ function applyRowColors_(sheet, rows) {
 
 function clearRetiredCalendarInvoiceColumns_(sheet) {
   const firstRetiredColumn = CONFIG.header.length + 1;
-  const retiredColumnCount = Math.max(CONFIG.invoicingHeader.length - CONFIG.header.length, 0);
+  const retiredColumnCount = getRetiredCalendarInvoiceColumnCount_();
   if (retiredColumnCount === 0) {
     return;
   }
 
   const rowCount = Math.max(sheet.getLastRow(), 1);
   sheet.getRange(1, firstRetiredColumn, rowCount, retiredColumnCount).clearContent();
+}
+
+function getRetiredCalendarInvoiceColumnCount_() {
+  const legacyInvoiceTailColumnCount = Math.max(
+    LEGACY_INVOICING_HEADER.length - (LEGACY_CALENDAR_HEADER.length - 1),
+    0
+  );
+  const currentHeaderDelta = Math.max(CONFIG.invoicingHeader.length - CONFIG.header.length, 0);
+  return Math.max(legacyInvoiceTailColumnCount, currentHeaderDelta);
 }

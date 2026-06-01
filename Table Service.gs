@@ -1,3 +1,7 @@
+const LEGACY_CALENDAR_STATE_SHEET_NAME = '_calendar_state';
+const LEGACY_INVOICING_STATE_SHEET_NAME = '_invoicing_state';
+const LEGACY_NON_BILLABLE_STATE_SHEET_NAME = '_non_billable_state';
+
 function ensureCalendarSheet_(ss) {
   return ensureNamedSheet_(ss, CONFIG.sheetName, false);
 }
@@ -60,13 +64,9 @@ function ensureManagedWorkbookStructure_(ss, spreadsheetId) {
   const sheet = ensureCalendarSheet_(ss);
   const invoicingSheet = ensureInvoicingSheet_(ss);
   const nonBillableSheet = ensureNonBillableSheet_(ss);
-  const legacyStateSheet = resolveLegacyStateSheet_(ss, CONFIG.stateSheetName, '_calendar_state');
-  const legacyInvoicingStateSheet = resolveLegacyStateSheet_(ss, CONFIG.invoicingStateSheetName, '_invoicing_state');
-  const legacyNonBillableStateSheet = resolveLegacyStateSheet_(
-    ss,
-    CONFIG.nonBillableStateSheetName,
-    '_non_billable_state'
-  );
+  const legacyStateSheet = ss.getSheetByName(LEGACY_CALENDAR_STATE_SHEET_NAME);
+  const legacyInvoicingStateSheet = ss.getSheetByName(LEGACY_INVOICING_STATE_SHEET_NAME);
+  const legacyNonBillableStateSheet = ss.getSheetByName(LEGACY_NON_BILLABLE_STATE_SHEET_NAME);
 
   migrateSheetToInlineIds_(sheet, CONFIG.header, LEGACY_CALENDAR_HEADER, legacyStateSheet);
   migrateSheetToInlineIds_(invoicingSheet, CONFIG.invoicingHeader, LEGACY_INVOICING_HEADER, legacyInvoicingStateSheet);
@@ -94,12 +94,9 @@ function ensureManagedWorkbookStructure_(ss, spreadsheetId) {
   deleteLegacyStateSheets_(
     ss,
     collectLegacyStateSheets_(ss, [
-      CONFIG.stateSheetName,
-      CONFIG.invoicingStateSheetName,
-      CONFIG.nonBillableStateSheetName,
-      '_calendar_state',
-      '_invoicing_state',
-      '_non_billable_state',
+      LEGACY_CALENDAR_STATE_SHEET_NAME,
+      LEGACY_INVOICING_STATE_SHEET_NAME,
+      LEGACY_NON_BILLABLE_STATE_SHEET_NAME,
     ])
   );
 
@@ -110,10 +107,6 @@ function ensureManagedWorkbookStructure_(ss, spreadsheetId) {
   };
 }
 
-
-function resolveLegacyStateSheet_(ss, configuredName, defaultName) {
-  return ss.getSheetByName(configuredName) || ss.getSheetByName(defaultName);
-}
 
 function collectLegacyStateSheets_(ss, sheetNames) {
   const seenSheetIds = new Set();

@@ -37,15 +37,21 @@ const DEFAULT_INVOICING_HEADER = Object.freeze(['EventID'].concat(LEGACY_INVOICI
 
 const DEFAULT_NON_BILLABLE_HEADER = Object.freeze(['EventID'].concat(LEGACY_NON_BILLABLE_HEADER));
 
+const OBSOLETE_STATE_CONFIG_KEYS = Object.freeze([
+  'stateSheetName',
+  'invoicingStateSheetName',
+  'nonBillableStateSheetName',
+  'stateHeader',
+  'invoicingStateHeader',
+  'nonBillableStateHeader',
+]);
+
 const DEFAULT_CONFIG = Object.freeze({
   sheetName: 'Calendar',
-  stateSheetName: '_calendar_state',
   tableName: 'Calendar',
   invoicingSheetName: 'Invoicing',
-  invoicingStateSheetName: '_invoicing_state',
   invoicingTableName: 'Invoicing',
   nonBillableSheetName: 'Non-Billable',
-  nonBillableStateSheetName: '_non_billable_state',
   nonBillableTableName: 'NonBillable',
   statusCell: buildDefaultStatusCell_(DEFAULT_HEADER),
 
@@ -58,10 +64,6 @@ const DEFAULT_CONFIG = Object.freeze({
   header: DEFAULT_HEADER.slice(),
   invoicingHeader: DEFAULT_INVOICING_HEADER.slice(),
   nonBillableHeader: DEFAULT_NON_BILLABLE_HEADER.slice(),
-
-  stateHeader: ['EventKey', 'RowKind'],
-  invoicingStateHeader: ['EventKey'],
-  nonBillableStateHeader: ['EventKey'],
 
   rowKind: {
     normal: 'NORMAL',
@@ -148,6 +150,9 @@ function readConfigStateFromSheet_() {
   }
 
   const isValid = validationMessage === 'VALID';
+  if (isValid) {
+    writeNormalizedConfigState_(refs, merged);
+  }
   refs.cellsByKey[CONFIG_SHEET_SPEC.keys.validity].setValue(validationMessage);
 
   return {
@@ -155,6 +160,17 @@ function readConfigStateFromSheet_() {
     message: validationMessage,
     config: merged || mergeConfigWithDefaults_({}),
   };
+}
+
+function writeNormalizedConfigState_(refs, config) {
+  const jsonPayload = JSON.stringify(cloneConfig_(config), null, 2);
+  const schemaPayload = JSON.stringify(buildDefaultSchemaRegistry_(), null, 2);
+  if (toText_(refs.cellsByKey[CONFIG_SHEET_SPEC.keys.json].getValue()) !== jsonPayload) {
+    refs.cellsByKey[CONFIG_SHEET_SPEC.keys.json].setValue(jsonPayload);
+  }
+  if (toText_(refs.cellsByKey[CONFIG_SHEET_SPEC.keys.schemaRegistryJson].getValue()) !== schemaPayload) {
+    refs.cellsByKey[CONFIG_SHEET_SPEC.keys.schemaRegistryJson].setValue(schemaPayload);
+  }
 }
 
 function writeConfigToSheet_(config) {
@@ -472,6 +488,7 @@ function normalizeConfigOverrideForCurrentSchema_(overrideConfig) {
     && (
       arraysEqual_(normalized.header, DEFAULT_INVOICING_HEADER)
       || arraysEqual_(normalized.header, LEGACY_CALENDAR_HEADER)
+      || arraysEqual_(normalized.header, LEGACY_INVOICING_HEADER)
       || arraysEqual_(normalized.header, previousStatusHeader)
     )
   ) {
@@ -488,6 +505,11 @@ function normalizeConfigOverrideForCurrentSchema_(overrideConfig) {
   ) {
     delete normalized.nonBillableHeader;
   }
+
+
+  OBSOLETE_STATE_CONFIG_KEYS.forEach((key) => {
+    delete normalized[key];
+  });
 
   if (normalized.nonBillableTableName === 'Non-Billable') {
     normalized.nonBillableTableName = DEFAULT_CONFIG.nonBillableTableName;
@@ -559,7 +581,11 @@ function validateSchemaRegistry_(schemaRegistry) {
 
 function validateConfigStrictWithSchema_(normalizedConfig, rawConfig, schemaRegistry) {
   const raw = rawConfig || {};
-  const allowedKeys = new Set((schemaRegistry.allowedKeys || []).concat(Object.keys(DEFAULT_CONFIG)));
+  const allowedKeys = new Set(
+    (schemaRegistry.allowedKeys || [])
+      .concat(Object.keys(DEFAULT_CONFIG))
+      .concat(OBSOLETE_STATE_CONFIG_KEYS)
+  );
   Object.keys(raw).forEach((key) => {
     if (!allowedKeys.has(key)) {
       throw new Error(`Invalid config: unknown key "${key}" is not allowed.`);
@@ -570,15 +596,12 @@ function validateConfigStrictWithSchema_(normalizedConfig, rawConfig, schemaRegi
 
 function validateConfig_(config) {
   assertString_(config.sheetName, 'sheetName');
-  assertString_(config.stateSheetName, 'stateSheetName');
   assertString_(config.tableName, 'tableName');
   assertValidTableName_(config.tableName, 'tableName');
   assertString_(config.invoicingSheetName, 'invoicingSheetName');
-  assertString_(config.invoicingStateSheetName, 'invoicingStateSheetName');
   assertString_(config.invoicingTableName, 'invoicingTableName');
   assertValidTableName_(config.invoicingTableName, 'invoicingTableName');
   assertString_(config.nonBillableSheetName, 'nonBillableSheetName');
-  assertString_(config.nonBillableStateSheetName, 'nonBillableStateSheetName');
   assertString_(config.nonBillableTableName, 'nonBillableTableName');
   assertValidTableName_(config.nonBillableTableName, 'nonBillableTableName');
   assertString_(config.statusCell, 'StatusCell');
@@ -615,36 +638,7 @@ function validateConfig_(config) {
     DEFAULT_CONFIG.nonBillableHeader,
     'nonBillableHeader'
   );
-  assertStringArrayWithLength_(
-    config.stateHeader,
-    'stateHeader',
-    DEFAULT_CONFIG.stateHeader.length
-  );
-  assertExactArrayMatch_(
-    config.stateHeader,
-    DEFAULT_CONFIG.stateHeader,
-    'stateHeader'
-  );
-  assertStringArrayWithLength_(
-    config.invoicingStateHeader,
-    'invoicingStateHeader',
-    DEFAULT_CONFIG.invoicingStateHeader.length
-  );
-  assertExactArrayMatch_(
-    config.invoicingStateHeader,
-    DEFAULT_CONFIG.invoicingStateHeader,
-    'invoicingStateHeader'
-  );
-  assertStringArrayWithLength_(
-    config.nonBillableStateHeader,
-    'nonBillableStateHeader',
-    DEFAULT_CONFIG.nonBillableStateHeader.length
-  );
-  assertExactArrayMatch_(
-    config.nonBillableStateHeader,
-    DEFAULT_CONFIG.nonBillableStateHeader,
-    'nonBillableStateHeader'
-  );
+
 
   if (!config.rowKind || typeof config.rowKind !== 'object') {
     throw new Error('Invalid rowKind object.');
