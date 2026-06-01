@@ -67,8 +67,8 @@ function ensureMenuVisible_(ui) {
       )
       .addSubMenu(
         ui.createMenu('Mark as')
-          .addItem('Invoiced', 'markVisibleCalendarRowsAsInvoiced')
-          .addItem('Non-Billable', 'markVisibleCalendarRowsAsNonBillable')
+          .addItem('Invoiced', 'markSelectedCalendarRowsAsInvoiced')
+          .addItem('Non-Billable', 'markSelectedCalendarRowsAsNonBillable')
       )
       .addToUi();
   } catch (error) {
@@ -84,8 +84,8 @@ function ensureMenuVisible_(ui) {
       )
       .addSubMenu(
         ui.createMenu('Mark as')
-          .addItem('Invoiced', 'markVisibleCalendarRowsAsInvoiced')
-          .addItem('Non-Billable', 'markVisibleCalendarRowsAsNonBillable')
+          .addItem('Invoiced', 'markSelectedCalendarRowsAsInvoiced')
+          .addItem('Non-Billable', 'markSelectedCalendarRowsAsNonBillable')
       )
       .addToUi();
     logStorageDebug_('menu.fallback', String(error));
@@ -151,14 +151,10 @@ function updateCalendarSheets() {
     setProgress_(ss, 'Reading existing sheet state...');
     const existingState = readExistingState_(sheet, stateSheet, timeZone, scope, invoiceStore, nonBillableStore);
 
-    const changedNotifications = [];
-
     setProgress_(ss, 'Rebuilding worksheet data...');
     let finalRows = rebuildFromFullSnapshot_(
       existingState,
       fetchResult.currentByKey,
-      changedNotifications,
-      timeZone,
       scope
     );
 
@@ -212,20 +208,8 @@ function updateCalendarSheets() {
       );
     }
 
-    if (changedNotifications.length > 0) {
-      setProgress_(ss, `Done. ${changedNotifications.length} registered event update(s) acknowledged.`);
-      SpreadsheetApp.getUi().alert(
-        'Registered event updates acknowledged',
-        buildChangedRowsMessage_(changedNotifications),
-        SpreadsheetApp.getUi().ButtonSet.OK
-      );
-      showToastMessage_(ss, `${changedNotifications.length} registered event update(s) acknowledged.`, {
-        severity: 'info',
-      });
-    } else {
-      setProgress_(ss, 'Done.');
-      showToastMessage_(ss, 'Calendar import finished.', { severity: 'info' });
-    }
+    setProgress_(ss, 'Done.');
+    showToastMessage_(ss, 'Calendar import finished.', { severity: 'info' });
   } finally {
     restoreUiState_(ss, uiState);
     lock.releaseLock();

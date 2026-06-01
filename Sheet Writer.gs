@@ -26,7 +26,7 @@ function writeVisibleBody_(sheet, rows) {
 }
 
 function buildStatusFormula_(rowNumber) {
-  return `=IF('${CONFIG.stateSheetName}'!$B${rowNumber}="${CONFIG.rowKind.changedCopy}","Changed",IF(COUNTIF('${CONFIG.invoicingStateSheetName}'!$A:$A,'${CONFIG.stateSheetName}'!$A${rowNumber})>0,"Invoiced",IF(COUNTIF('${CONFIG.nonBillableStateSheetName}'!$A:$A,'${CONFIG.stateSheetName}'!$A${rowNumber})>0,"Non-billable","Open")))`;
+  return `=IF(COUNTIF('${CONFIG.invoicingStateSheetName}'!$A:$A,'${CONFIG.stateSheetName}'!$A${rowNumber})>0,"Invoiced",IF(COUNTIF('${CONFIG.nonBillableStateSheetName}'!$A:$A,'${CONFIG.stateSheetName}'!$A${rowNumber})>0,"Non-billable","Open"))`;
 }
 
 function writeStateBody_(stateSheet, rows) {

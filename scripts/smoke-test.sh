@@ -39,11 +39,18 @@ rg -n "repairInvoicingStateFromImportedEvents_" "Invoicing Store.gs" >/dev/null
 rg -n "readNonBillableState_" "Non Billable Store.gs" >/dev/null
 rg -n "applyRegisterStatusesToImportedEvents_" "Non Billable Store.gs" >/dev/null
 rg -n "buildStatusFormula_" "Sheet Writer.gs" >/dev/null
-rg -n "rowKind\.changedCopy.*Changed.*COUNTIF" "Sheet Writer.gs" >/dev/null
-rg -n "rowKind === CONFIG\.rowKind\.changedCopy" "Rebuild Engine.gs" >/dev/null
 rg -n "Filter for" Code.gs >/dev/null
 rg -n "Mark as" Code.gs >/dev/null
-rg -n "markVisibleCalendarRowsAsInvoiced" "Status Actions.gs" >/dev/null
+rg -n "markSelectedCalendarRowsAsInvoiced" "Status Actions.gs" >/dev/null
+rg -n "collectSelectedCalendarRows_" "Status Actions.gs" >/dev/null
+rg -n "getActiveRangeList" "Status Actions.gs" >/dev/null
+rg -n "showMarkProgress_" "Status Actions.gs" >/dev/null
+rg -n "Marking selected Calendar rows" "Status Actions.gs" >/dev/null
+rg -n "reportMarkProgress_" "Status Actions.gs" >/dev/null
+if rg -n "Changed|changed follow-up|registered event update" "Sheet Writer.gs" "Rebuild Engine.gs" Code.gs README.md >/dev/null; then
+  echo "smoke-test: FAIL: changed follow-up workflow should not be present."
+  exit 1
+fi
 rg -n "Performing full import for self-healing reconciliation" Code.gs >/dev/null
 if rg -n "fetchIncrementalChanges_\(ss, calendars, timeZone\)" Code.gs >/dev/null; then
   echo "smoke-test: FAIL: updateCalendarSheets should not use incremental fetches."
@@ -53,7 +60,6 @@ fi
 # Static smoke test for import-start and invoice-preservation safeguards.
 rg -n "ignoredBeforeImportStartCount" "State Store.gs" >/dev/null
 rg -n "excluded from this update and left unchanged" Code.gs >/dev/null
-rg -n "Registered event updates acknowledged" Code.gs >/dev/null
 rg -n "!row\.invoiceNumber" "Duplicate Engine.gs" >/dev/null
 rg -n "isExistingRowInScope_\(row\.values, scope\)" "Duplicate Engine.gs" >/dev/null
 

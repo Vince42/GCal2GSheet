@@ -18,7 +18,6 @@ The script is designed to:
 - ignore future events
 - preserve historical rows before a configured start date
 - preserve invoiced rows
-- detect changed invoiced events and create a new follow-up row
 - remove duplicates according to calendar precedence rules
 - keep all date and time values as real spreadsheet values
 - preserve a native Google Sheets table object on the visible worksheet
@@ -60,8 +59,6 @@ It contains exactly these columns in this order:
 - `Open` — no matching register row exists yet
 - `Invoiced` — the event is listed in `Invoicing`
 - `Non-billable` — the event is listed in `Non-Billable`
-
-Changed follow-up rows may temporarily show `Changed` until reviewed.
 
 ### Invoicing worksheet
 
@@ -196,11 +193,10 @@ The rebuild strategy is:
 8. merge imported events with existing rows
 9. migrate legacy invoice data from old `Calendar` invoice columns into `Invoicing` when needed
 10. mark imported rows as `Invoiced`, `Non-billable`, or `Open` by looking up their `EventKey` in register state sheets
-11. generate changed follow-up rows for changed registered events
-12. remove duplicates again on eligible final rows
-13. rewrite the visible `Calendar` sheet in bulk
-14. rewrite the hidden calendar state sheet in bulk
-15. refresh number formats, row colors, and the table ranges
+11. remove duplicates again on eligible final rows
+12. rewrite the visible `Calendar` sheet in bulk
+13. rewrite the hidden calendar state sheet in bulk
+14. refresh number formats, row colors, and the table ranges
 
 This keeps visible/state row alignment deterministic and favors correctness over minimizing Calendar API fetch volume. If a managed sheet is missing, the script recreates it; if expected columns do not match after repair, the update stops instead of silently writing into the wrong shape.
 
@@ -230,12 +226,7 @@ A calendar row is `Non-billable` if:
 
 This name is preferred over `Non-Invoicing` because it describes the business decision: the event should not be billed.
 
-If an invoiced or non-billable event changes:
-
-- the original row remains unchanged
-- a new follow-up row is created directly below the historical invoiced row
-- the new row gets `RowKind = CHANGED_COPY`
-- the user is notified after the run
+If an invoiced or non-billable event changes in Google Calendar, the single `Calendar` import row is updated from Google Calendar and keeps its register-derived status. No duplicate follow-up row is created.
 
 ### Invoice date
 
@@ -299,7 +290,7 @@ Non-billable register columns:
 - `Duration`
 - `Reason`
 
-With this model, a deleted import row is harmless: the full import recreates the calendar row, and the register sheets mark it with the correct status again by `EventKey`. If the calendar event later changes, the import can compare the current calendar signature with the existing state and create an explicit review item instead of risking silent data loss.
+With this model, a deleted import row is harmless: the full import recreates the calendar row, and the register sheets mark it with the correct status again by `EventKey`. If the calendar event later changes, the single Calendar import row updates from Google Calendar while its register-derived status remains intact.
 
 ---
 
@@ -393,7 +384,7 @@ The custom menu contains:
 
 `Filter for` applies a `Status` filter on the `Calendar` sheet and leaves any existing date/start filter criteria in place. If the native table filter cannot be controlled directly, the script falls back to hiding non-matching rows while keeping date-filtered rows hidden.
 
-`Mark as` reads the currently displayed `Calendar` rows and appends them to the selected durable register. After the register state is written, the `Status` formula changes those rows to the corresponding status.
+`Mark as` reads the currently selected `Calendar` rows and appends those rows to the selected durable register. Selections may be adjacent or non-adjacent; if cells B5, C7, D7, and E10 are selected, rows 5, 7, and 10 are marked. After the register state is written, the `Status` formula changes those rows to the corresponding status.
 
 ---
 
