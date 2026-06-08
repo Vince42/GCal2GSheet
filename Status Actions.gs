@@ -135,9 +135,11 @@ function markSelectedCalendarRows_(targetSheetName) {
 
     SpreadsheetApp.flush();
     const movedMessage = removedCount > 0 ? ` ${removedCount} row(s) removed from the other register.` : '';
-    showToastMessage_(ss, `${markedCount} selected Calendar row(s) marked as ${targetSheetName}.${movedMessage}`, {
-      severity: 'info',
-    });
+    showToastMessage_(
+      ss,
+      `${markedCount} selected Calendar row(s) marked ${getMarkActionLabel_(targetSheetName)}.${movedMessage}`,
+      { severity: 'info' }
+    );
   } finally {
     lock.releaseLock();
   }
@@ -253,6 +255,16 @@ function getSelectedCalendarRanges_(ss, sheet) {
   return [];
 }
 
+function getMarkActionLabel_(targetSheetName) {
+  if (targetSheetName === CONFIG.invoicingSheetName) {
+    return 'for Invoicing';
+  }
+  if (targetSheetName === CONFIG.nonBillableSheetName) {
+    return 'as Non-Billable';
+  }
+  return `as ${targetSheetName}`;
+}
+
 function showMarkProgress_(ss, targetSheetName, done, total, stepLabel) {
   const normalizedDone = Math.min(Math.max(Number(done) || 0, 0), Math.max(Number(total) || 0, 0));
   const normalizedTotal = Math.max(Number(total) || 0, 0);
@@ -261,7 +273,7 @@ function showMarkProgress_(ss, targetSheetName, done, total, stepLabel) {
 
   writeStatusCellMessage_(
     ss,
-    `${stepText}Marking selected Calendar rows as ${targetSheetName}: ${normalizedDone}/${normalizedTotal} (${percentage}%)`
+    `${stepText}Marking selected Calendar rows ${getMarkActionLabel_(targetSheetName)}: ${normalizedDone}/${normalizedTotal} (${percentage}%)`
   );
   SpreadsheetApp.flush();
 }

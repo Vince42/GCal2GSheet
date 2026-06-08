@@ -45,12 +45,12 @@ rg -n "readNonBillableState_" "Non Billable Store.gs" >/dev/null
 rg -n "applyRegisterStatusesToImportedEvents_" "Non Billable Store.gs" >/dev/null
 rg -n "buildStatusFormula_" "Sheet Writer.gs" >/dev/null
 rg -n "Filter for" Code.gs >/dev/null
-rg -n "Mark as" Code.gs >/dev/null
+rg -n "ui\.createMenu\('Mark'\)" Code.gs >/dev/null
 rg -n "markSelectedCalendarRowsAsInvoiced" "Status Actions.gs" >/dev/null
 rg -n "collectSelectedCalendarRows_" "Status Actions.gs" >/dev/null
 rg -n "getActiveRangeList" "Status Actions.gs" >/dev/null
 rg -n "showMarkProgress_" "Status Actions.gs" >/dev/null
-rg -n "Marking selected Calendar rows" "Status Actions.gs" >/dev/null
+rg -n -F 'Marking selected Calendar rows ${getMarkActionLabel_(targetSheetName)}' "Status Actions.gs" >/dev/null
 rg -n "reportMarkProgress_" "Status Actions.gs" >/dev/null
 if rg -n "Changed|changed follow-up|registered event update" "Sheet Writer.gs" "Rebuild Engine.gs" Code.gs README.md >/dev/null; then
   echo "smoke-test: FAIL: changed follow-up workflow should not be present."

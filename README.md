@@ -356,11 +356,11 @@ They are treated as workbook UI structures that must remain present and consiste
 The custom menu contains:
 
 - `Filter for` → `Open`, `Invoiced`, `Non-Billable`
-- `Mark as` → `Invoiced`, `Non-Billable`
+- `Mark` → `for Invoicing`, `as Non-Billable`
 
 `Filter for` applies a `Status` filter on the `Calendar` sheet and leaves any existing date/start filter criteria in place. If the native table filter cannot be controlled directly, the script falls back to hiding non-matching rows while keeping date-filtered rows hidden.
 
-`Mark as` reads the currently selected `Calendar` rows and appends those rows to the selected durable register. Selections may be adjacent or non-adjacent; if cells B5, C7, D7, and E10 are selected, rows 5, 7, and 10 are marked. After the register state is written, the `Status` formula changes those rows to the corresponding status.
+`Mark` reads the currently selected `Calendar` rows and appends those rows to the selected durable register. Selections may be adjacent or non-adjacent; if cells B5, C7, D7, and E10 are selected, rows 5, 7, and 10 are marked. After the register state is written, the `Status` formula changes those rows to the corresponding status.
 
 ---
 
