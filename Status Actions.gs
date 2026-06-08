@@ -91,10 +91,10 @@ function markSelectedCalendarRows_(targetSheetName) {
 
     showMarkProgress_(ss, targetSheetName, 0, selectedRows.length, 'Preparing selected rows');
 
-    let markedCount = 0;
+    let markResult = { addedCount: 0, alreadyStoredCount: 0 };
     let removedCount = 0;
     if (targetSheetName === CONFIG.invoicingSheetName) {
-      markedCount = appendCalendarRowsToInvoicing_(
+      markResult = appendCalendarRowsToInvoicing_(
         selectedRows,
         managedSheets.invoicingSheet,
         (done, total) => showMarkProgress_(ss, targetSheetName, done, total, 'Preparing register rows')
@@ -107,7 +107,7 @@ function markSelectedCalendarRows_(targetSheetName) {
         (done, total) => showMarkProgress_(ss, targetSheetName, done, total, 'Removing moved rows')
       );
     } else if (targetSheetName === CONFIG.nonBillableSheetName) {
-      markedCount = appendCalendarRowsToNonBillable_(
+      markResult = appendCalendarRowsToNonBillable_(
         selectedRows,
         managedSheets.nonBillableSheet,
         (done, total) => showMarkProgress_(ss, targetSheetName, done, total, 'Preparing register rows')
@@ -135,10 +135,9 @@ function markSelectedCalendarRows_(targetSheetName) {
     );
 
     SpreadsheetApp.flush();
-    const movedMessage = removedCount > 0 ? ` ${removedCount} row(s) removed from the other register.` : '';
     showToastMessage_(
       ss,
-      `${markedCount} selected Calendar row(s) marked ${getMarkActionLabel_(targetSheetName)}.${movedMessage}`,
+      buildMarkResultMessage_(targetSheetName, markResult, removedCount),
       { severity: 'info' }
     );
   } finally {
@@ -281,9 +280,14 @@ function showMarkProgress_(ss, targetSheetName, done, total, stepLabel) {
 
 function appendCalendarRowsToInvoicing_(calendarRows, invoicingSheet, progressCallback) {
   const invoiceStore = readInvoicingState_(invoicingSheet);
+  const existingEventKeys = new Set(invoiceStore.byEventKey.keys());
   const appendValues = [];
+  let alreadyStoredCount = 0;
+
   calendarRows.forEach((row, index) => {
-    if (!invoiceStore.byEventKey.has(row.eventKey)) {
+    if (existingEventKeys.has(row.eventKey)) {
+      alreadyStoredCount += 1;
+    } else {
       appendValues.push([
         row.eventKey,
         row.values[0],
@@ -297,20 +301,26 @@ function appendCalendarRowsToInvoicing_(calendarRows, invoicingSheet, progressCa
         '',
         '',
       ]);
+      existingEventKeys.add(row.eventKey);
     }
 
     reportMarkProgress_(progressCallback, index + 1, calendarRows.length);
   });
 
   appendInvoicingRows_(invoicingSheet, appendValues);
-  return appendValues.length;
+  return { addedCount: appendValues.length, alreadyStoredCount };
 }
 
 function appendCalendarRowsToNonBillable_(calendarRows, nonBillableSheet, progressCallback) {
   const nonBillableStore = readNonBillableState_(nonBillableSheet);
+  const existingEventKeys = new Set(nonBillableStore.byEventKey.keys());
   const appendValues = [];
+  let alreadyStoredCount = 0;
+
   calendarRows.forEach((row, index) => {
-    if (!nonBillableStore.byEventKey.has(row.eventKey)) {
+    if (existingEventKeys.has(row.eventKey)) {
+      alreadyStoredCount += 1;
+    } else {
       appendValues.push([
         row.eventKey,
         row.values[0],
@@ -321,13 +331,35 @@ function appendCalendarRowsToNonBillable_(calendarRows, nonBillableSheet, progre
         row.values[5],
         '',
       ]);
+      existingEventKeys.add(row.eventKey);
     }
 
     reportMarkProgress_(progressCallback, index + 1, calendarRows.length);
   });
 
   appendNonBillableRows_(nonBillableSheet, appendValues);
-  return appendValues.length;
+  return { addedCount: appendValues.length, alreadyStoredCount };
+}
+
+function buildMarkResultMessage_(targetSheetName, markResult, removedCount) {
+  const addedCount = Number(markResult && markResult.addedCount) || 0;
+  const alreadyStoredCount = Number(markResult && markResult.alreadyStoredCount) || 0;
+  const movedMessage = removedCount > 0 ? ` ${removedCount} row(s) removed from the other register.` : '';
+  const alreadyStoredMessage = alreadyStoredCount > 0
+    ? ` ${alreadyStoredCount} selected Calendar row(s) were already stored in ${getMarkRegisterLocationLabel_(targetSheetName)}, so no duplicate register entries were added.`
+    : '';
+
+  return `${addedCount} selected Calendar row(s) marked ${getMarkActionLabel_(targetSheetName)}.${alreadyStoredMessage}${movedMessage}`;
+}
+
+function getMarkRegisterLocationLabel_(targetSheetName) {
+  if (targetSheetName === CONFIG.invoicingSheetName) {
+    return 'Invoicing';
+  }
+  if (targetSheetName === CONFIG.nonBillableSheetName) {
+    return 'Non-Billable';
+  }
+  return targetSheetName;
 }
 
 function reportMarkProgress_(progressCallback, done, total) {
