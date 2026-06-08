@@ -53,6 +53,8 @@ rg -n "collectSelectedCalendarRows_" "Status Actions.gs" >/dev/null
 rg -n "getActiveRangeList" "Status Actions.gs" >/dev/null
 rg -n "showMarkProgress_" "Status Actions.gs" >/dev/null
 rg -n -F 'Marking selected Calendar rows ${getMarkActionLabel_(targetSheetName)}' "Status Actions.gs" >/dev/null
+rg -n -F 'already stored in ${getMarkRegisterLocationLabel_(targetSheetName)}' "Status Actions.gs" >/dev/null
+rg -n "existingEventKeys\.add\(row\.eventKey\)" "Status Actions.gs" >/dev/null
 rg -n "reportMarkProgress_" "Status Actions.gs" >/dev/null
 if rg -n "Changed|changed follow-up|registered event update" "Sheet Writer.gs" "Rebuild Engine.gs" Code.gs README.md >/dev/null; then
   echo "smoke-test: FAIL: changed follow-up workflow should not be present."
