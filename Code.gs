@@ -66,9 +66,9 @@ function ensureMenuVisible_(ui) {
           .addItem('Non-Billable', 'filterCalendarForNonBillable')
       )
       .addSubMenu(
-        ui.createMenu('Mark as')
-          .addItem('Invoiced', 'markSelectedCalendarRowsAsInvoiced')
-          .addItem('Non-Billable', 'markSelectedCalendarRowsAsNonBillable')
+        ui.createMenu('Mark')
+          .addItem('for Invoicing', 'markSelectedCalendarRowsAsInvoiced')
+          .addItem('as Non-Billable', 'markSelectedCalendarRowsAsNonBillable')
       )
       .addToUi();
   } catch (error) {
@@ -83,9 +83,9 @@ function ensureMenuVisible_(ui) {
           .addItem('Non-Billable', 'filterCalendarForNonBillable')
       )
       .addSubMenu(
-        ui.createMenu('Mark as')
-          .addItem('Invoiced', 'markSelectedCalendarRowsAsInvoiced')
-          .addItem('Non-Billable', 'markSelectedCalendarRowsAsNonBillable')
+        ui.createMenu('Mark')
+          .addItem('for Invoicing', 'markSelectedCalendarRowsAsInvoiced')
+          .addItem('as Non-Billable', 'markSelectedCalendarRowsAsNonBillable')
       )
       .addToUi();
     logStorageDebug_('menu.fallback', String(error));
